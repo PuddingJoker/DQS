@@ -1,5 +1,5 @@
-import * as vscode from 'vscode';
-const fs = require('fs')
+import * as vscode from "vscode";
+const fs = require("fs");
 
 const dqs = // 定义出发的命令，要和package.json的一致
   vscode.commands.registerCommand("dqs.sort", () => {
@@ -30,7 +30,10 @@ const dqs = // 定义出发的命令，要和package.json的一致
     for (let i of newContent) {
       depLength++;
       // 判断是否是 官方的依赖
-      if (i[2].indexOf("/") == -1 && i[2].indexOf(".") == -1) {
+      if (
+        (i[2].indexOf("/") == -1 && i[2].indexOf(".") == -1) ||
+        i[2].indexOf("next") !== -1
+      ) {
         originDepArr.push({
           dep: i[1],
           from: i[2].replace("-", ""),
@@ -107,7 +110,6 @@ const dqs = // 定义出发的命令，要和package.json的一致
 
     // 渲染
     fs.writeFileSync(currentlyOpenTabfilePath, newContent);
-    
   });
 
 export default dqs;

@@ -3,7 +3,7 @@
 	"displayName": "dqs",
 	"description": "依赖快速排序 Dependencies Quickly Sort",
 	"publisher":"PuddingAndBall",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"engines": {
 		"vscode": "^1.62.0"
 	},
