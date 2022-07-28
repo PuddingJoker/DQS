@@ -29,14 +29,26 @@ const dqs = // 定义出发的命令，要和package.json的一致
     // 遍历匹配的内容
     for (let i of newContent) {
       depLength++;
+      if (i[2].indexOf("src/") != -1 || i[2].indexOf("assets/") != -1) {
+        originSelfDepArr.push({
+          dep: i[1],
+          from: i[2],
+        });
+        // 将除了字母以外的符号去掉，方便排序   {useEffect} => useEffect
+        selfDepArr.push({
+          dep: i[1].replace(/\{|\}|\,/g, ""),
+          from: i[2],
+        });
+      }
       // 判断是否是 官方的依赖
-      if (
+      else if (
         (i[2].indexOf("/") == -1 && i[2].indexOf(".") == -1) ||
-        i[2].indexOf("next") !== -1
+        i[2].indexOf("next/") != -1 ||
+        i[2].indexOf("nuxt/") != -1
       ) {
         originDepArr.push({
           dep: i[1],
-          from: i[2].replace("-", ""),
+          from: i[2].replace(/\-|\//g, ""),
         });
       } else {
         originSelfDepArr.push({
@@ -91,12 +103,10 @@ const dqs = // 定义出发的命令，要和package.json的一致
 
     // 拼接字符串
     renderArr.map((item, index) => {
-      const str3 =
-        index == renderArr.length - 1
-          ? `\n import ${item.dep} from ${item.from} \n`
-          : `\n import ${item.dep} from ${item.from}`;
+      const str3 =`\nimport ${item.dep} from ${item.from}`;
       str += str3;
     });
+    str += '\n'
 
     // 将本身的语句全部替换为星号
     newContent = fileContentArr.replace(reg, "*");
@@ -107,7 +117,6 @@ const dqs = // 定义出发的命令，要和package.json的一致
       replaceStr += "*";
     }
     newContent = newContent.replace(replaceStr, str);
-
     // 渲染
     fs.writeFileSync(currentlyOpenTabfilePath, newContent);
   });
