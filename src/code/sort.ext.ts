@@ -48,7 +48,7 @@ const dqs = // 定义出发的命令，要和package.json的一致
       ) {
         originDepArr.push({
           dep: i[1],
-          from: i[2].replace(/\-|\//g, ""),
+          from: i[2]
         });
       } else {
         originSelfDepArr.push({
