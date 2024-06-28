@@ -2,8 +2,8 @@
 	"name": "DQS",
 	"displayName": "dqs",
 	"description": "依赖快速排序 Dependencies Quickly Sort",
-	"publisher":"PuddingAndBall",
-	"version": "0.1.1",
+	"publisher": "PuddingAndBall",
+	"version": "2.0.1",
 	"engines": {
 		"vscode": "^1.62.0"
 	},
@@ -12,8 +12,7 @@
 	],
 	"icon": "images/icon.jpeg",
 	"activationEvents": [
-		"onCommand:dqs.sort",
-		"onCommand:dqs.imp"
+		"onCommand:dqs.sort"
 	],
 	"main": "./dist/extension.js",
 	"contributes": {
@@ -21,10 +20,6 @@
 			{
 				"command": "dqs.sort",
 				"title": "dqs.sort"
-			},
-			{
-				"command": "dqs.imp",
-				"title": "dqs.imp"
 			}
 		],
 		"keybindings": [
@@ -32,13 +27,22 @@
 				"command": "dqs.sort",
 				"key": "ctrl+alt+q",
 				"mac": "ctrl+shift+q"
-			},
-			{
-				"command": "dqs.imp",
-				"key": "ctrl+enter",
-				"mac": "ctrl+enter"
 			}
-		]
+		],
+		"configuration": {
+			"properties": {
+				"DQS.formatAfterSort": {
+					"type": "boolean",
+					"default": true,
+					"description": "auto format code with prettier after sorting dependencies"
+				},
+				"DQS.sortOnSaveEnabled": {
+					"type": "boolean",
+					"default": true,
+					"description": "auto sort dependencies on save"
+				}
+			}
+		}
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run package",
@@ -52,20 +56,21 @@
 		"test": "node ./out/test/runTest.js"
 	},
 	"devDependencies": {
-		"@types/vscode": "^1.62.0",
 		"@types/glob": "^7.1.4",
 		"@types/mocha": "^9.0.0",
 		"@types/node": "14.x",
+		"@types/vscode": "^1.62.0",
 		"@typescript-eslint/eslint-plugin": "^4.31.1",
 		"@typescript-eslint/parser": "^4.31.1",
+		"@vscode/test-electron": "^1.6.2",
 		"eslint": "^7.32.0",
 		"glob": "^7.1.7",
 		"mocha": "^9.1.1",
-		"typescript": "^4.4.3",
+		"prettier": "^3.3.2",
 		"ts-loader": "^9.2.5",
+		"typescript": "^4.4.3",
 		"webpack": "^5.52.1",
-		"webpack-cli": "^4.8.0",
-		"@vscode/test-electron": "^1.6.2"
+		"webpack-cli": "^4.8.0"
 	},
 	"dependencies": {
 		"axios": "^0.24.0"

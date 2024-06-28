@@ -1,113 +1,115 @@
+import * as prettier from 'prettier';
 import * as vscode from 'vscode';
-const fs = require('fs')
 
-const dqs = // 定义出发的命令，要和package.json的一致
-  vscode.commands.registerCommand("dqs.sort", () => {
-    // vs vode api
-    const currentEditor = vscode.window.activeTextEditor;
-    if (!currentEditor) {
-      return;
-    }
+const fs = require("fs");
+const path = require("path")
 
-    // 匹配 依赖引入的正则
-    const reg = /\s*import\s*(.+)\s*from\s*(.+)\s*\;*/g;
-    const { document } = currentEditor;
-    // 获取当前执行的文件路径
-    const currentlyOpenTabfilePath = document.fileName;
-    // 读取内容
-    let fileContentArr = fs.readFileSync(currentlyOpenTabfilePath, "utf8");
-    // newContent 是最后渲染的的内容 这里是匹配出所有的依赖句子
-    let newContent = fileContentArr.matchAll(reg);
-    // 统计一共有几句依赖，后续把依赖都替换成星号，然后再将星号替换成 newContent
-    let depLength = 0;
-    // 官方的 依赖数组  React、Vue等
-    let originDepArr = [];
-    // 自身的依赖数组  "../../***"
-    let selfDepArr = [];
-    // 自身最原始的依赖数组
-    let originSelfDepArr: any[] = [];
-    // 遍历匹配的内容
-    for (let i of newContent) {
-      depLength++;
-      // 判断是否是 官方的依赖
-      if (i[2].indexOf("/") == -1 && i[2].indexOf(".") == -1) {
-        originDepArr.push({
-          dep: i[1],
-          from: i[2].replace("-", ""),
-        });
-      } else {
-        originSelfDepArr.push({
-          dep: i[1],
-          from: i[2],
-        });
-        // 将除了字母以外的符号去掉，方便排序   {useEffect} => useEffect
-        selfDepArr.push({
-          dep: i[1].replace(/\{|\}|\,/g, ""),
-          from: i[2],
-        });
-      }
-    }
+function sortAndOrganizeImports(code: string, isVue: boolean): string {
+  // 将代码按行分割
+  let lines = code.split('\n');
 
-    // 单词排序
-    function alphabeticSorting(params: any, key: any) {
-      return params.sort((a: any, b: any) => {
-        let x = a[key],
-          y = b[key];
-        return x > y ? 1 : x < y ? -1 : 0;
-      });
-    }
+  // 定义存储各类 import 的数组
+  let defaultImports: string[] = [];
+  let otherImports: string[] = [];
+  let otherLines: string[] = [];
 
-    const originDepArr2 = alphabeticSorting(originDepArr, "dep");
-    const selfDepArr2 = alphabeticSorting(selfDepArr, "dep");
-    // 获取排序后的依赖顺序
-    const selfDepKeys = selfDepArr2.map((item: any) => item.from);
-    // 最后要渲染的依赖数组
-    const renderArr = [];
+  // vue的依赖开始排序
+  let vueDepStart = false;
 
-    // 对官方的依赖进行排序  如果是 React等 就放在最前面
-    for (let i = originDepArr2.length - 1; i >= 0; i--) {
-      const from = originDepArr2[i].from;
-      if (/vue|react|angular/gi.test(from)) {
-        renderArr.unshift(originDepArr2[i]);
-      } else {
-        renderArr.push(originDepArr2[i]);
-      }
-    }
+  // 遍历每一行，根据 import 关键字和路径判断分类
+  lines.forEach((line) => {
+    line = line.trim(); // 去除首尾空格
 
-    // 对自己的依赖进行排序
-    selfDepKeys.map((key: any) => {
-      originSelfDepArr.map(item => {
-        if (item.from === key) {
-          renderArr.push(item);
+    if (line?.startsWith('import')) {
+      let importStatement = line.match(
+        /^import\s+((?:{[^}]*})?|[^'"]+)\s+from\s+['"]([^'"]+)['"]/
+      );
+      if (importStatement) {
+        let [, imports, path] = importStatement;
+        // 判断路径是否为默认依赖
+        if (!['./', '../', '@/', '~/'].some((prefix) => path?.startsWith(prefix))) {
+          !imports?.startsWith('{') ? defaultImports.unshift(line) : defaultImports.push(line);
+        } else {
+          !imports?.startsWith('{') ? otherImports.unshift(line) : otherImports.push(line);
         }
-      });
-    });
+      } else {
+        otherLines.push(line); // 无法解析的 import 语句，默认放入其他行
+      }
 
-    // 最后的依赖顺序
-    let str = ``;
 
-    // 拼接字符串
-    renderArr.map((item, index) => {
-      const str3 =
-        index == renderArr.length - 1
-          ? `\n import ${item.dep} from ${item.from} \n`
-          : `\n import ${item.dep} from ${item.from}`;
-      str += str3;
-    });
+      if (isVue) vueDepStart = true
 
-    // 将本身的语句全部替换为星号
-    newContent = fileContentArr.replace(reg, "*");
+    } else {
+      if (vueDepStart) {
+        otherLines.push(...defaultImports, ...otherImports)
+        vueDepStart = false
+      }
 
-    //统计星号 再将星号替换成 最后的字符串
-    let replaceStr = "";
-    for (let i = 0; i < depLength; i++) {
-      replaceStr += "*";
+      otherLines.push(line); // 非 import 行，默认放入其他行
     }
-    newContent = newContent.replace(replaceStr, str);
-
-    // 渲染
-    fs.writeFileSync(currentlyOpenTabfilePath, newContent);
-    
   });
 
-export default dqs;
+  // 合并排序后的结果
+  let sortedCode: string = (isVue ? otherLines : [
+    ...defaultImports,
+    ...otherImports,
+    ...otherLines
+  ]).join('\n');
+
+  return sortedCode;
+}
+
+const start = async (currentEditor: vscode.TextEditor) => {
+  const { document } = currentEditor;
+  // 获取当前执行的文件路径
+  const currentlyOpenTabfilePath = document.fileName;
+  // 读取内容
+  let fileContent = fs.readFileSync(currentlyOpenTabfilePath, "utf8");
+  const fileExtension = path.extname(currentlyOpenTabfilePath)
+  const parser = fileExtension == '.vue' ? 'vue' : 'typescript'
+
+  fileContent = sortAndOrganizeImports(fileContent, parser == 'vue')
+
+  // 读取配置项，决定是否执行操作命令
+  const config = vscode.workspace.getConfiguration('DQS');
+  // 排序后自动格式化
+  const formatAfterSort = config.get('formatAfterSort', true); // 默认为 true
+
+  if (formatAfterSort) {
+    const formatted = await prettier.format(fileContent, { semi: false, parser });
+    fs.writeFileSync(currentlyOpenTabfilePath, formatted);
+  } else {
+    fs.writeFileSync(currentlyOpenTabfilePath, fileContent);
+  }
+}
+
+// 定义出发的命令，要和package.json的一致
+const dqs = vscode.commands.registerCommand("dqs.sort", async () => {
+  // vscode api
+  const currentEditor = vscode.window.activeTextEditor;
+  if (!currentEditor) {
+    return;
+  }
+
+  start(currentEditor)
+});
+
+const disposables = vscode.workspace.onDidSaveTextDocument(async (document) => {
+  // 读取配置项，决定是否执行操作命令
+  const config = vscode.workspace.getConfiguration('DQS');
+  // 保存时自动排序
+  const sortOnSaveEnabled = config.get('sortOnSaveEnabled', true); // 默认为 true
+
+  // 确保只在当前活动的文档保存时执行操作
+  if (vscode.window.activeTextEditor && document === vscode.window.activeTextEditor.document && sortOnSaveEnabled) {
+    await start(vscode.window.activeTextEditor);
+  }
+});
+
+export {
+  disposables,
+  dqs
+};
+
+
+
