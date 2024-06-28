@@ -1,5 +1,6 @@
-import * as vscode from "vscode";
-import * as prettier from "prettier";
+import * as prettier from 'prettier';
+import * as vscode from 'vscode';
+
 const fs = require("fs");
 const path = require("path")
 
@@ -27,9 +28,9 @@ function sortAndOrganizeImports(code: string, isVue: boolean): string {
         let [, imports, path] = importStatement;
         // 判断路径是否为默认依赖
         if (!['./', '../', '@/', '~/'].some((prefix) => path?.startsWith(prefix))) {
-          !imports?.includes('{') ? defaultImports.unshift(line) : defaultImports.push(line);
+          !imports?.startsWith('{') ? defaultImports.unshift(line) : defaultImports.push(line);
         } else {
-          !imports?.includes('{') ? otherImports.unshift(line) : otherImports.push(line);
+          !imports?.startsWith('{') ? otherImports.unshift(line) : otherImports.push(line);
         }
       } else {
         otherLines.push(line); // 无法解析的 import 语句，默认放入其他行
@@ -58,51 +59,52 @@ function sortAndOrganizeImports(code: string, isVue: boolean): string {
   return sortedCode;
 }
 
-const disposables: any[] = [];
-const dqs = // 定义出发的命令，要和package.json的一致
-  vscode.commands.registerCommand("dqs.sort", async () => {
-    // vscode api
-    const currentEditor = vscode.window.activeTextEditor;
-    if (!currentEditor) {
-      return;
-    }
+const start = async (currentEditor: vscode.TextEditor) => {
+  const { document } = currentEditor;
+  // 获取当前执行的文件路径
+  const currentlyOpenTabfilePath = document.fileName;
+  // 读取内容
+  let fileContent = fs.readFileSync(currentlyOpenTabfilePath, "utf8");
+  const fileExtension = path.extname(currentlyOpenTabfilePath)
+  const parser = fileExtension == '.vue' ? 'vue' : 'typescript'
 
-    const { document } = currentEditor;
-    // 获取当前执行的文件路径
-    const currentlyOpenTabfilePath = document.fileName;
-    // 读取内容
-    let fileContent = fs.readFileSync(currentlyOpenTabfilePath, "utf8");
-    const fileExtension = path.extname(currentlyOpenTabfilePath)
-    const parser = fileExtension == '.vue' ? 'vue' : 'typescript'
+  fileContent = sortAndOrganizeImports(fileContent, parser == 'vue')
 
-    fileContent = sortAndOrganizeImports(fileContent, parser == 'vue')
+  // 读取配置项，决定是否执行操作命令
+  const config = vscode.workspace.getConfiguration('DQS');
+  // 排序后自动格式化
+  const formatAfterSort = config.get('formatAfterSort', true); // 默认为 true
 
-    // 读取配置项，决定是否执行操作命令
-    const config = vscode.workspace.getConfiguration('DQS');
-    // 保存时自动排序
-    const sortOnSaveEnabled = config.get('sortOnSaveEnabled', true); // 默认为 true
-    // 排序后自动格式化
-    const formatAfterSort = config.get('formatAfterSort', true); // 默认为 true
+  if (formatAfterSort) {
+    const formatted = await prettier.format(fileContent, { semi: false, parser });
+    fs.writeFileSync(currentlyOpenTabfilePath, formatted);
+  } else {
+    fs.writeFileSync(currentlyOpenTabfilePath, fileContent);
+  }
+}
 
-    const start = async () => {
-      if (formatAfterSort) {
-        const formatted = await prettier.format(fileContent, { semi: false, parser });
-        fs.writeFileSync(currentlyOpenTabfilePath, formatted);
-      } else {
-        fs.writeFileSync(currentlyOpenTabfilePath, fileContent);
-      }
-    }
+// 定义出发的命令，要和package.json的一致
+const dqs = vscode.commands.registerCommand("dqs.sort", async () => {
+  // vscode api
+  const currentEditor = vscode.window.activeTextEditor;
+  if (!currentEditor) {
+    return;
+  }
 
-    if (sortOnSaveEnabled) {
-      disposables.push(vscode.workspace.onDidSaveTextDocument(() => {
-        start();
-        return
-      }));
-    }
+  start(currentEditor)
+});
 
-    start();
+const disposables = vscode.workspace.onDidSaveTextDocument(async (document) => {
+  // 读取配置项，决定是否执行操作命令
+  const config = vscode.workspace.getConfiguration('DQS');
+  // 保存时自动排序
+  const sortOnSaveEnabled = config.get('sortOnSaveEnabled', true); // 默认为 true
 
-  });
+  // 确保只在当前活动的文档保存时执行操作
+  if (vscode.window.activeTextEditor && document === vscode.window.activeTextEditor.document && sortOnSaveEnabled) {
+    await start(vscode.window.activeTextEditor);
+  }
+});
 
 export {
   disposables,

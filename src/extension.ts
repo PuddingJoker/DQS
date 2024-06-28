@@ -3,10 +3,9 @@ import { disposables, dqs } from "./code/sort.ext";
 
 
 export function activate(context: vscode.ExtensionContext) {
-  context.subscriptions.push(dqs);
+  context.subscriptions.push(dqs, disposables);
 }
 
-export function deactivate() { 
-  disposables.forEach(d => d.dispose());
+export function deactivate() {
 }
 
