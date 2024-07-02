@@ -4,6 +4,17 @@ import * as vscode from 'vscode';
 const fs = require("fs");
 const path = require("path")
 
+function isNodeModule(moduleName: string) {
+  if (['./', '../', '@/', '~/'].some((prefix) => moduleName?.startsWith(prefix))) return false
+  try {
+    const modulePath = `${vscode.workspace.workspaceFolders?.[0].uri.fsPath!}/node_modules/${moduleName}`
+    return fs.existsSync(modulePath)
+  } catch (e) {
+    return false; // 捕获到异常，模块不存在
+  }
+}
+
+
 function sortAndOrganizeImports(code: string, isVue: boolean): string {
   // 将代码按行分割
   let lines = code.split('\n');
@@ -27,7 +38,7 @@ function sortAndOrganizeImports(code: string, isVue: boolean): string {
       if (importStatement) {
         let [, imports, path] = importStatement;
         // 判断路径是否为默认依赖
-        if (!['./', '../', '@/', '~/'].some((prefix) => path?.startsWith(prefix))) {
+        if (isNodeModule(path)) {
           !imports?.startsWith('{') ? defaultImports.unshift(line) : defaultImports.push(line);
         } else {
           !imports?.startsWith('{') ? otherImports.unshift(line) : otherImports.push(line);
